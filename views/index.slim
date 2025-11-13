@@ -5,30 +5,48 @@ html
     title Chess 2
     link rel="stylesheet" href="/css/style.css"
     script src="/js/app.js"
-  body
+  body class=@player_color
     h1 Chess 2
-    p Current turn: #{@turn.capitalize}
+
+    nav.player-switch
+      a href="/play/white" class=('active' if @player_color == 'white') Play as White
+      a href="/play/black" class=('active' if @player_color == 'black') Play as Black
+
+    p
+      | Viewing as 
+      strong #{@player_color.capitalize}
+
+    p
+      | Current turn:
+      span.current-turn-value #{@turn.capitalize}
     p Move rules: #{@rules_count}
+    p.notice.waiting-notice class=('hidden' if @player_color == @turn)
+      | Waiting for #{@turn.capitalize} to move.
 
     .controls
       form action="/board_size" method="post" style="display:inline-block;margin-right:1em"
+        input type="hidden" name="player" value=@player_color
         label Board size:
         input type="number" name="size" min="4" max="20" value=@board_size style="width:70px"
         button type="submit" Update
 
       form action="/reset" method="post" style="display:inline-block"
+        input type="hidden" name="player" value=@player_color
         button type="submit" Reset Board
 
       form action="/move_rules/seed_defaults" method="post" style="display:inline-block;margin-left:1em"
+        input type="hidden" name="player" value=@player_color
         button type="submit" Ensure Default Move Rules
 
       form action="/move_rules/reset_defaults" method="post" style="display:inline-block;margin-left:0.5em"
+        input type="hidden" name="player" value=@player_color
         button type="submit" Reset Move Rules (Clear + Seed)
 
-    .board-wrapper data-turn=@turn data-size=@board_size
-      == slim :board, locals: { pieces: @pieces, board_size: @board_size }
+    .board-wrapper data-turn=@turn data-size=@board_size data-player=@player_color data-orientation=@board_orientation
+      == slim :board, locals: { pieces: @pieces, board_size: @board_size, orientation: @board_orientation }
 
     form action="/move" method="post"
+      input type="hidden" name="player" value=@player_color
       label From (x,y):
       input type="text" name="from"
       label To (x,y):

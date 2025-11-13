@@ -10,6 +10,36 @@ h1 {
     text-align: center;
 }
 
+.player-switch {
+    display: flex;
+    justify-content: center;
+    gap: 1em;
+    margin-bottom: 1em;
+}
+
+.player-switch a {
+    text-decoration: none;
+    color: #333;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+}
+
+.player-switch a.active {
+    font-weight: bold;
+    border-color: #333;
+}
+
+.notice {
+    text-align: center;
+    color: #b35b00;
+    font-weight: bold;
+}
+
+.notice.hidden {
+    display: none;
+}
+
 .controls {
     margin: 20px 0;
     text-align: center;

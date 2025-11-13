@@ -13,11 +13,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   
-  const currentTurn = boardWrapper.getAttribute('data-turn');
+  let currentTurn = boardWrapper.getAttribute('data-turn');
+  const playerColor = boardWrapper.getAttribute('data-player') || 'white';
+  const orientation = boardWrapper.getAttribute('data-orientation') || 'white';
+  const currentTurnEl = document.querySelector('.current-turn-value');
+  const waitingNotice = document.querySelector('.waiting-notice');
   console.log('Current turn:', currentTurn);
+  console.log('Viewing as:', playerColor, 'orientation:', orientation);
 
   let selected = null;
   let validMoves = [];
+
+  const capitalize = str => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  function updateTurnUI() {
+    if (currentTurnEl) {
+      currentTurnEl.textContent = capitalize(currentTurn);
+    }
+    if (waitingNotice) {
+      const shouldWait = playerColor !== currentTurn;
+      waitingNotice.textContent = `Waiting for ${capitalize(currentTurn)} to move.`;
+      waitingNotice.classList.toggle('hidden', !shouldWait);
+    }
+  }
+
+  updateTurnUI();
 
   function clearHighlights() {
     board.querySelectorAll('td.selected').forEach(el => el.classList.remove('selected'));
@@ -75,6 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const isPlayersTurn = playerColor === currentTurn;
+
     // If clicking a valid move destination -> submit move
     if (td.classList.contains('valid-move') && selected) {
       console.log(`Moving from (${selected.x}, ${selected.y}) to (${x}, ${y})`);
@@ -85,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch('/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ from, to }).toString(),
+          body: new URLSearchParams({ from, to, player: playerColor }).toString(),
         });
         window.location.reload();
       } catch (error) {
@@ -94,11 +119,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (!isPlayersTurn) {
+      console.log('Not this player turn, ignoring selection');
+      clearHighlights();
+      selected = null;
+      validMoves = [];
+      return;
+    }
+
     const clickedPieceColor = pieceColor(td);
     console.log('Piece color at square:', clickedPieceColor);
     
     // Clicking on a piece of the current turn -> select it
-    if (hasPiece(td) && clickedPieceColor === currentTurn) {
+    if (hasPiece(td) && clickedPieceColor === playerColor) {
       console.log('Selecting piece');
       
       // If clicking the same piece, deselect it
@@ -130,17 +163,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function refreshGameState() {
+    try {
+      const res = await fetch('/state');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.turn && data.turn !== currentTurn) {
+        currentTurn = data.turn;
+        boardWrapper.setAttribute('data-turn', currentTurn);
+        console.log('Turn updated to:', currentTurn);
+        updateTurnUI();
+        updateSelectableSquares();
+      }
+    } catch (error) {
+      console.error('Error refreshing state:', error);
+    }
+  }
+
   // Mark selectable squares
   function updateSelectableSquares() {
+    const canMoveNow = playerColor === currentTurn;
     board.querySelectorAll('td').forEach(td => {
       td.classList.remove('can-select');
-      if (hasPiece(td) && pieceColor(td) === currentTurn) {
+      if (canMoveNow && hasPiece(td) && pieceColor(td) === playerColor) {
         td.classList.add('can-select');
       }
     });
   }
 
   updateSelectableSquares();
+  refreshGameState();
+  setInterval(refreshGameState, 3000);
   
   // Add click listener to the entire board
   board.addEventListener('click', onSquareClick);

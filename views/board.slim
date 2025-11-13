@@ -1,7 +1,12 @@
 table.board
-  - board_size.times do |y|
+  - row_indices = (0...board_size).to_a
+  - col_indices = (0...board_size).to_a
+  - if defined?(orientation) && orientation == :black
+    - row_indices = row_indices.reverse
+    - col_indices = col_indices.reverse
+  - row_indices.each do |y|
     tr
-      - board_size.times do |x|
+      - col_indices.each do |x|
         - piece = pieces.find { |p| p['x'] == x && p['y'] == y }
         - color_class = (x + y).even? ? 'light' : 'dark'
         - data_attrs = { 'data-x' => x, 'data-y' => y }
