@@ -1,0 +1,63 @@
+doctype html
+html
+  head
+    meta charset="utf-8"
+    title Chess 2
+    link rel="stylesheet" href="/css/style.css"
+    script src="/js/app.js"
+  body
+    h1 Chess 2
+    p Current turn: #{@turn.capitalize}
+    p Move rules: #{@rules_count}
+
+    .controls
+      form action="/board_size" method="post" style="display:inline-block;margin-right:1em"
+        label Board size:
+        input type="number" name="size" min="4" max="20" value=@board_size style="width:70px"
+        button type="submit" Update
+
+      form action="/reset" method="post" style="display:inline-block"
+        button type="submit" Reset Board
+
+      form action="/move_rules/seed_defaults" method="post" style="display:inline-block;margin-left:1em"
+        button type="submit" Ensure Default Move Rules
+
+      form action="/move_rules/reset_defaults" method="post" style="display:inline-block;margin-left:0.5em"
+        button type="submit" Reset Move Rules (Clear + Seed)
+
+    .board-wrapper data-turn=@turn data-size=@board_size
+      == slim :board, locals: { pieces: @pieces, board_size: @board_size }
+
+    form action="/move" method="post"
+      label From (x,y):
+      input type="text" name="from"
+      label To (x,y):
+      input type="text" name="to"
+      button type="submit" Move
+
+    hr
+    h2 Add Move Rule
+    form action="/move_rules" method="post" style="display:flex;gap:0.5em;align-items:end;flex-wrap:wrap"
+      div
+        label Name
+        input type="text" name="name" placeholder="e.g., Knight" required=true
+      div
+        label Color (optional)
+        input type="text" name="color" placeholder="white/black"
+      div
+        label dx
+        input type="number" name="dx" value=1 style="width:80px"
+      div
+        label dy
+        input type="number" name="dy" value=2 style="width:80px"
+      div
+        label max_steps
+        input type="number" name="max_steps" value=1 min=1 style="width:100px"
+      div
+        label kind
+        select name="kind"
+          option value="normal" normal
+          option value="move_only" move_only
+          option value="capture_only" capture_only
+      button type="submit" Add Rule
+    

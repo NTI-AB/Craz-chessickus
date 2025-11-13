@@ -1,0 +1,152 @@
+/* Chess board styling */
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+.controls {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.controls form {
+    display: inline-block;
+    margin-right: 1em;
+}
+
+.controls input[type="number"] {
+    width: 70px;
+    padding: 4px;
+}
+
+.controls button {
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.board-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+table.board {
+    border-collapse: collapse;
+    border: 2px solid #333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+table.board td {
+    width: 60px;
+    height: 60px;
+    text-align: center;
+    vertical-align: middle;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+table.board td.light {
+    background-color: #f0d9b5;
+}
+
+table.board td.dark {
+    background-color: #b58863;
+}
+
+table.board td img.piece {
+    width: 50px;
+    height: 50px;
+    pointer-events: none;
+}
+
+/* Clickable pieces - show pointer cursor */
+table.board td.can-select {
+    cursor: pointer;
+}
+
+table.board td.can-select:hover {
+    opacity: 0.8;
+}
+
+/* Selected piece highlight */
+table.board td.selected {
+    background-color: #baca44 !important;
+    box-shadow: inset 0 0 0 3px #829769;
+}
+
+/* Valid move indicators */
+table.board td.valid-move {
+    cursor: pointer;
+    position: relative;
+}
+
+/* Dot for empty squares */
+table.board td.valid-move:not(:has(img.piece))::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* Ring for capture squares */
+table.board td.valid-move:has(img.piece)::after {
+    content: '';
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border: 3px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+table.board td.valid-move:hover::after {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Move form (fallback) */
+form[action="/move"] {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+form[action="/move"] label {
+    margin: 0 10px;
+}
+
+form[action="/move"] input[type="text"] {
+    width: 80px;
+    padding: 6px;
+    margin: 0 5px;
+}
+
+form[action="/move"] button {
+    padding: 6px 16px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+form[action="/move"] button:hover {
+    background-color: #45a049;
+}

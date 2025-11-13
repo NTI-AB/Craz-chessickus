@@ -1,0 +1,12 @@
+table.board
+  - board_size.times do |y|
+    tr
+      - board_size.times do |x|
+        - piece = pieces.find { |p| p['x'] == x && p['y'] == y }
+        - color_class = (x + y).even? ? 'light' : 'dark'
+        - data_attrs = { 'data-x' => x, 'data-y' => y }
+        td class=color_class data-x=x data-y=y
+          - if piece
+            - name = (piece['name'] || '').downcase
+            - color = piece['color']
+            img.piece src="/img/#{color}_#{name}.svg" alt="#{color} #{name}"
