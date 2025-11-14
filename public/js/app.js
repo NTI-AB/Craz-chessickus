@@ -12,9 +12,23 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('No board found');
     return;
   }
+
+  const normalizeColor = value => (value || '').toString().trim().toLowerCase();
+  const body = document.body;
+  const bodyColor = body?.classList.contains('black')
+    ? 'black'
+    : body?.classList.contains('white')
+      ? 'white'
+      : '';
+  const playerFromPath = window.location.pathname.includes('/black')
+    ? 'black'
+    : window.location.pathname.includes('/white')
+      ? 'white'
+      : '';
   
-  let currentTurn = boardWrapper.getAttribute('data-turn');
-  const playerColor = boardWrapper.getAttribute('data-player') || 'white';
+  let currentTurn = normalizeColor(boardWrapper.getAttribute('data-turn')) || 'white';
+  const playerAttr = boardWrapper.getAttribute('data-player');
+  const playerColor = normalizeColor(playerAttr) || bodyColor || playerFromPath || 'white';
   const orientation = boardWrapper.getAttribute('data-orientation') || 'white';
   const currentTurnEl = document.querySelector('.current-turn-value');
   const waitingNotice = document.querySelector('.waiting-notice');
@@ -168,9 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/state');
       if (!res.ok) return;
       const data = await res.json();
-
-      if (data.turn && data.turn !== currentTurn) {
-        currentTurn = data.turn;
+      const nextTurn = normalizeColor(data.turn);
+      if (nextTurn && nextTurn !== currentTurn) {
+        currentTurn = nextTurn;
         boardWrapper.setAttribute('data-turn', currentTurn);
         console.log('Turn updated to:', currentTurn);
         updateTurnUI();
