@@ -209,6 +209,41 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSelectableSquares();
   refreshGameState();
   setInterval(refreshGameState, 3000);
+
+  let sseReloading = false;
+  function forceReload() {
+    if (sseReloading) return;
+    sseReloading = true;
+    const url = new URL(window.location.href);
+    url.searchParams.set('_', Date.now()); // cache-buster
+    window.location.replace(url.toString());
+  }
+
+  // Listen for server-sent events to refresh when any move/reset happens
+  function setupSSE() {
+    if (!window.EventSource) {
+      console.warn('EventSource not supported, falling back to polling only');
+      return;
+    }
+    const es = new EventSource('/events');
+    es.addEventListener('refresh', (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        console.log('Refresh event received', payload);
+      } catch (err) {
+        console.log('Refresh event received');
+      }
+      forceReload();
+    });
+    es.addEventListener('ping', () => {
+      // Keep-alive / connection confirmation
+    });
+    es.onerror = () => {
+      console.warn('SSE connection lost, retrying automatically...');
+    };
+  }
+
+  setupSSE();
   
   // Add click listener to the entire board
   board.addEventListener('click', onSquareClick);

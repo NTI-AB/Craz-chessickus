@@ -2,6 +2,8 @@ require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'sqlite3'
 require 'json'
+require 'thread'
+require 'time'
 require_relative 'lib/move_rules_store'
 
 set :bind, '0.0.0.0'
@@ -158,6 +160,24 @@ before do
   MoveRulesStore.ensure_seeded!(MOVES_DB)
 end
 
+# --- SSE setup ---
+STREAMS = []
+STREAMS_MUTEX = Mutex.new
+
+def broadcast_refresh(reason:)
+  payload = { reason: reason, at: Time.now.utc.iso8601 }
+  data = "event: refresh\ndata: #{payload.to_json}\n\n"
+  STREAMS_MUTEX.synchronize do
+    STREAMS.dup.each do |out|
+      begin
+        out << data
+      rescue StandardError
+        STREAMS.delete(out)
+      end
+    end
+  end
+end
+
 # --- Routes ---
 get '/' do
   redirect '/play/white'
@@ -192,6 +212,7 @@ post '/move' do
   DB.execute('DELETE FROM pieces WHERE x = ? AND y = ?', [to_x, to_y]) # capture
   DB.execute('UPDATE pieces SET x = ?, y = ? WHERE id = ?', [to_x, to_y, piece['id']])
   switch_turn
+  broadcast_refresh(reason: 'move')
 
   redirect player_path(player)
 end
@@ -199,6 +220,7 @@ end
 post '/reset' do
   player = normalize_player_color(params[:player])
   reset_board
+  broadcast_refresh(reason: 'reset')
   redirect player_path(player)
 end
 
@@ -209,6 +231,7 @@ post '/board_size' do
   size = 20 if size > 20
   DB.execute('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ['board_size', size.to_s])
   reset_board
+  broadcast_refresh(reason: 'board_size')
   redirect player_path(player)
 end
 
@@ -256,11 +279,31 @@ end
 post '/move_rules/seed_defaults' do
   MoveRulesStore.ensure_seeded!(MOVES_DB)
   player = normalize_player_color(params[:player])
+  broadcast_refresh(reason: 'move_rules_seed')
   redirect player_path(player)
 end
 
 post '/move_rules/reset_defaults' do
   MoveRulesStore.reset!(MOVES_DB)
   player = normalize_player_color(params[:player])
+  broadcast_refresh(reason: 'move_rules_reset')
   redirect player_path(player)
+end
+
+get '/events' do
+  content_type 'text/event-stream'
+  headers['Cache-Control'] = 'no-cache'
+  stream(:keep_open) do |out|
+    STREAMS_MUTEX.synchronize { STREAMS << out }
+
+    out.callback do
+      STREAMS_MUTEX.synchronize { STREAMS.delete(out) }
+    end
+    out.errback do
+      STREAMS_MUTEX.synchronize { STREAMS.delete(out) }
+    end
+
+    # Initial ping so clients know the stream is alive
+    out << "event: ping\ndata: connected\n\n"
+  end
 end
