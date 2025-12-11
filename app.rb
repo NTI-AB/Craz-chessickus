@@ -154,6 +154,13 @@ def taunting_piece?(piece)
   end
 end
 
+def protector_piece?(piece)
+  patterns_for_piece(piece).any? do |entry|
+    pattern = entry['definition'] || {}
+    pattern['protect']
+  end
+end
+
 def opponent_color(color)
   color == 'white' ? 'black' : 'white'
 end
@@ -162,7 +169,21 @@ def piece_unmoved?(piece)
   piece['move_count'].to_i <= 0
 end
 
-def moves_from_definition(piece, pieces, pattern, size, for_attack: false)
+def protected_piece_ids(pieces, size = board_size)
+  protected = {}
+  pieces.each do |piece|
+    next unless protector_piece?(piece)
+    dx, dy = piece['color'] == 'white' ? [0, 1] : [0, -1]
+    tx = piece['x'] + dx
+    ty = piece['y'] + dy
+    next if tx.negative? || ty.negative? || tx >= size || ty >= size
+    target = piece_at_from_state(pieces, tx, ty)
+    protected[target['id']] = true if target && target['color'] == piece['color']
+  end
+  protected
+end
+
+def moves_from_definition(piece, pieces, pattern, size, for_attack: false, protected_ids: {})
   moves = []
   return moves unless pattern
 
@@ -179,7 +200,9 @@ def moves_from_definition(piece, pieces, pattern, size, for_attack: false)
 
       occ = piece_at_from_state(pieces, tx, ty)
       if occ
-        moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal } if occ['color'] != piece['color']
+        if occ['color'] != piece['color'] && !protected_ids[occ['id']]
+          moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal }
+        end
         break
       else
         moves << { x: tx, y: ty, capture_id: nil, kind: :normal }
@@ -193,7 +216,11 @@ def moves_from_definition(piece, pieces, pattern, size, for_attack: false)
     next if tx.negative? || ty.negative? || tx >= size || ty >= size
 
     occ = piece_at_from_state(pieces, tx, ty)
-    moves << { x: tx, y: ty, capture_id: occ && occ['color'] != piece['color'] ? occ['id'] : nil, kind: :normal } if occ.nil? || occ['color'] != piece['color']
+    if occ.nil?
+      moves << { x: tx, y: ty, capture_id: nil, kind: :normal }
+    elsif occ['color'] != piece['color'] && !protected_ids[occ['id']]
+      moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal }
+    end
   end
 
   unless for_attack
@@ -215,9 +242,13 @@ def moves_from_definition(piece, pieces, pattern, size, for_attack: false)
     occ = piece_at_from_state(pieces, tx, ty)
     if for_attack
       next if occ && occ['color'] == piece['color']
-      moves << { x: tx, y: ty, capture_id: occ && occ['color'] != piece['color'] ? occ['id'] : nil, kind: :normal }
+      if occ && occ['color'] != piece['color'] && !protected_ids[occ['id']]
+        moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal }
+      elsif occ.nil?
+        moves << { x: tx, y: ty, capture_id: nil, kind: :normal }
+      end
     else
-      moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal } if occ && occ['color'] != piece['color']
+      moves << { x: tx, y: ty, capture_id: occ['id'], kind: :normal } if occ && occ['color'] != piece['color'] && !protected_ids[occ['id']]
     end
   end
 
@@ -279,7 +310,7 @@ def castling_moves_for_piece(piece, pieces, size)
   moves
 end
 
-def generate_moves_for_piece(piece, pieces:, board_size:, for_attack: false)
+def generate_moves_for_piece(piece, pieces:, board_size:, for_attack: false, protected_ids: {})
   patterns = patterns_for_piece(piece)
   return [] if patterns.empty?
 
@@ -287,9 +318,9 @@ def generate_moves_for_piece(piece, pieces:, board_size:, for_attack: false)
 
   patterns.each do |entry|
     definition = entry['definition'] || {}
-    moves.concat(moves_from_definition(piece, pieces, definition, board_size, for_attack: for_attack))
+    moves.concat(moves_from_definition(piece, pieces, definition, board_size, for_attack: for_attack, protected_ids: protected_ids))
     if !for_attack && piece_unmoved?(piece) && definition['first_move'].is_a?(Hash)
-      moves.concat(moves_from_definition(piece, pieces, definition['first_move'], board_size, for_attack: for_attack))
+      moves.concat(moves_from_definition(piece, pieces, definition['first_move'], board_size, for_attack: for_attack, protected_ids: protected_ids))
     end
   end
 
@@ -297,10 +328,10 @@ def generate_moves_for_piece(piece, pieces:, board_size:, for_attack: false)
   dedup_moves(moves)
 end
 
-def attacked_squares_for(pieces, attacker_color, size)
+def attacked_squares_for(pieces, attacker_color, size, protected_ids: protected_piece_ids(pieces, size))
   attacked = {}
   pieces.select { |p| p['color'] == attacker_color }.each do |piece|
-    generate_moves_for_piece(piece, pieces: pieces, board_size: size, for_attack: true).each do |move|
+    generate_moves_for_piece(piece, pieces: pieces, board_size: size, for_attack: true, protected_ids: protected_ids).each do |move|
       attacked[[move[:x], move[:y]]] = true
     end
   end
@@ -340,16 +371,20 @@ def apply_move_to_pieces(pieces, piece, move)
   new_state
 end
 
-def legal_moves_for_piece(piece, pieces, size)
-  generate_moves_for_piece(piece, pieces: pieces, board_size: size).select do |move|
+def legal_moves_for_piece(piece, pieces, size, protected_ids)
+  generate_moves_for_piece(piece, pieces: pieces, board_size: size, protected_ids: protected_ids).select do |move|
     updated = apply_move_to_pieces(pieces, piece, move)
     !king_in_check?(updated, piece['color'], size)
   end
 end
 
-def taunt_pieces_for_color(pieces, target_color)
+def taunt_pieces_for_color(pieces, target_color, protected_ids = protected_piece_ids(pieces, board_size))
   opponent = opponent_color(target_color)
-  pieces.select { |p| p['color'] == opponent && taunting_piece?(p) }
+  pieces.select do |p|
+    p['color'] == opponent &&
+      taunting_piece?(p) &&
+      !protected_ids[p['id']]
+  end
 end
 
 def apply_taunt_filter(moves_by_piece, taunt_ids)
@@ -369,12 +404,13 @@ def apply_taunt_filter(moves_by_piece, taunt_ids)
 end
 
 def legal_moves_for_color(color, pieces, size)
+  protected_ids = protected_piece_ids(pieces, size)
   moves_by_piece = {}
   pieces.select { |p| p['color'] == color }.each do |piece|
-    moves_by_piece[piece['id']] = legal_moves_for_piece(piece, pieces, size)
+    moves_by_piece[piece['id']] = legal_moves_for_piece(piece, pieces, size, protected_ids)
   end
 
-  taunt_targets = taunt_pieces_for_color(pieces, color)
+  taunt_targets = taunt_pieces_for_color(pieces, color, protected_ids)
   taunt_ids = taunt_targets.map { |p| p['id'] }
 
   filtered_moves, taunt_forced = apply_taunt_filter(moves_by_piece, taunt_ids)
