@@ -46,7 +46,11 @@ module MoveRulesStore
       color: 'white',
       definition: {
         move_only: [[0, -1]],
-        capture_only: [[-1, -1], [1, -1]]
+        capture_only: [[-1, -1], [1, -1]],
+        first_move: {
+          rays: [[0, -1]],
+          ray_limit: 2
+        }
       }
     },
     {
@@ -54,7 +58,11 @@ module MoveRulesStore
       color: 'black',
       definition: {
         move_only: [[0, 1]],
-        capture_only: [[-1, 1], [1, 1]]
+        capture_only: [[-1, 1], [1, 1]],
+        first_move: {
+          rays: [[0, 1]],
+          ray_limit: 2
+        }
       }
     }
   ].freeze

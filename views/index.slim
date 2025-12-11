@@ -22,6 +22,17 @@ html
     p Move patterns: #{@rules_count}
     p.notice.waiting-notice class=('hidden' if @player_color == @turn)
       | Waiting for #{@turn.capitalize} to move.
+    - if @in_check
+      p.notice style="color:#b30000;font-weight:bold"
+        | You are in check! Only moves that resolve check are allowed.
+    - if @taunt_forced
+      p.notice style="color:#b36b00;font-weight:bold"
+        - coords = @taunt_sources.map { |t| "#{t['name']} @ (#{t['x']},#{t['y']})" }.join(', ')
+        | Taunted by: #{coords}. You must capture a taunting piece this turn if possible.
+    - elsif @taunt_sources && @taunt_sources.any?
+      p.notice style="color:#8a6e0e"
+        - coords = @taunt_sources.map { |t| "#{t['name']} @ (#{t['x']},#{t['y']})" }.join(', ')
+        | Taunt pieces in play: #{coords}
 
     .controls
       form action="/board_size" method="post" style="display:inline-block;margin-right:1em"
