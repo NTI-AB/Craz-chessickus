@@ -1,0 +1,342 @@
+🟥 FULL CUSTOM CHESS RULESET (ALL NINE PIECES)
+
+Pieces: Joker, Doomfist, Sniper, Sentinel, Assassin, Berserker, Catapult, Wraith, Juggernaut.
+
+------------------------------------------
+🃏 1. JOKER
+------------------------------------------
+Movement
+
+Moves exactly like a King (1 square in any direction).
+
+Capture
+
+Cannot capture anything.
+
+Cannot block check by capturing.
+
+Taunt — Movement Restriction Mechanic (Final Version)
+
+For each enemy piece P:
+
+If P has at least one legal move that would capture the Joker, then:
+
+All of P’s other moves become illegal
+
+P may only choose from moves that capture the Joker
+
+P does not have to move immediately; it's just restricted
+
+Taunt Ends When:
+
+Joker moves out of the capturing path
+
+Joker becomes protected (e.g., Sentinel immunity)
+
+The capturing move would put P’s king in check
+
+Joker dies
+
+P becomes pinned or otherwise unable to perform that move
+
+Notes
+
+Snipers and Juggernauts obey taunt rules too.
+
+A taunted piece with no legal Joker-capturing move simply cannot move that turn.
+
+------------------------------------------
+💥 2. DOOMFIST
+------------------------------------------
+Movement
+
+A long-range jump piece.
+
+May jump to ANY square offset (dx, dy) where:
+
+dx ≠ 0
+
+dy ≠ 0
+→ Essentially a “super-knight” that jumps to any coordinate not in a straight line.
+
+Capture
+
+Landing on an enemy captures it.
+
+Restrictions
+
+Cannot capture the King.
+
+Stun
+
+After capturing, Doomfist becomes stunned for its next turn.
+
+Stunned = cannot move or attack for 1 full turn.
+
+------------------------------------------
+🎯 3. SNIPER
+------------------------------------------
+Movement
+
+Moves exactly like a King (1 square any direction).
+
+Attack
+
+May attack in any queen direction (rook/bishop lines).
+
+Must have clear line-of-sight.
+
+Does not move when attacking.
+
+Restrictions
+
+Cannot shoot through pieces.
+
+Cannot capture its own king by accident (duh).
+
+Must respect check rules.
+
+------------------------------------------
+🛡️ 4. SENTINEL
+------------------------------------------
+Movement
+
+Moves 1 square orthogonally (up, down, left, right).
+
+No diagonal moves.
+
+Shield Line (Immunity Ability)
+
+A friendly piece directly in front or directly behind the Sentinel
+(same rank/file, adjacent or continuous line)
+becomes IMMUNE to all capture.
+
+Immunity Notes
+
+Immunity applies only along the exact straight line of protection.
+
+Moving the protected piece or Sentinel breaks the immunity.
+
+Prevents:
+
+Melee captures
+
+Sniper shots
+
+Wraith possession
+
+Juggernaut crushing
+
+Berserker chains
+
+Catapult launches landing on them
+
+Limits
+
+Sentinel does not protect diagonally.
+
+Sentinel cannot protect itself.
+
+------------------------------------------
+🗡️ 5. ASSASSIN
+------------------------------------------
+Movement
+
+Moves like a Queen (orthogonal + diagonal),
+
+BUT cannot pass through pieces normally.
+
+Stealth Jump-Capture
+
+When capturing, Assassin may jump over exactly ONE adjacent piece (enemy or friendly)
+and land on the first enemy piece behind it in the same straight line.
+
+Example:
+
+A = Assassin
+? = adjacent piece (any)
+E = enemy piece to kill
+
+A ? E
+
+
+Assassin jumps over ?, lands on E, kills it.
+
+Restrictions
+
+Cannot jump over two pieces.
+
+Cannot jump without capturing.
+
+Cannot jump over a Sentinel-protected unit.
+
+------------------------------------------
+⚔️ 6. BERSERKER
+------------------------------------------
+Movement
+
+Moves like a Knight (your default earlier), unless you want King movement instead.
+
+(Tell me if you want to finalize King vs Knight.)
+
+Capture — Berserk Mode
+
+When Berserker captures a piece:
+
+Berserker enters Berserk Mode
+
+It must immediately check for another legal capture
+
+If one exists, it must capture again
+
+This repeats until:
+
+No legal capture is available
+
+Value restriction blocks further captures
+
+Value Restriction
+
+Berserker can ONLY capture pieces of equal or lesser value than the one it just captured.
+
+Example:
+
+Takes Queen → may take Rook → Bishop → Pawn
+
+Takes Pawn → can only take Pawns afterward
+
+Death Rule
+
+When the chain ends (no valid capture), Berserker dies instantly.
+
+Edge Conditions
+
+If final capture ends on a square in check → it still dies.
+
+Sentinel-protected pieces break the chain.
+
+------------------------------------------
+🏹 7. CATAPULT
+------------------------------------------
+Movement
+
+Moves like a King.
+
+Launch Ability
+
+Instead of moving, Catapult may:
+
+Select an adjacent friendly piece
+
+Choose a direction (orthogonal or diagonal, depending on your version; default = all 8 directions allowed)
+
+Launch the piece in that line until it hits:
+
+an enemy (which it captures and lands there), or
+
+the first occupied square (if friendly — move illegal), or
+
+the edge of the board
+
+Notes
+
+Catapult cannot launch itself.
+
+Launched piece is considered “moving normally” for purposes of check resolution.
+
+If launched piece lands on a square that checks the enemy king, that check is real.
+
+------------------------------------------
+👻 8. WRAITH
+------------------------------------------
+Movement
+
+Moves like a Bishop (diagonal only).
+
+Possession (Mind Control)
+
+Once per turn, instead of moving, Wraith may attempt to possess an enemy piece.
+
+Requirements:
+
+Enemy must be within 3 squares along a straight line (orthogonal or diagonal).
+
+Clear line-of-sight.
+
+Enemy must NOT be:
+
+A King
+
+Sentinel-protected
+
+Another Wraith
+
+Effect
+
+Target is mind-controlled for X turns (default: 3).
+
+The enemy piece temporarily becomes part of your army and moves on your turns.
+
+Possessed Piece Limits
+
+Cannot capture its own King
+
+Cannot suicide intentionally
+
+Cannot break rules of its normal movement set
+
+After Possession Ends
+
+Control returns to original owner.
+
+Piece remains on its current square.
+
+------------------------------------------
+🛢️ 9. JUGGERNAUT
+------------------------------------------
+Movement Direction (Primary Rule)
+
+From its position:
+
+Evaluate all 8 queen directions
+
+Count the number of empty squares until the first occupied square in each
+
+Juggernaut may ONLY move in direction(s) with the maximum count
+
+Mandatory Max-Distance Move
+
+Juggernaut must move to the furthest possible tile along that direction.
+
+Cannot stop early.
+
+🧨 Crushing Charge — UPDATED Balanced Version
+If distance moved ≤ 4 squares:
+
+Standard charge.
+
+Juggernaut hits the first enemy piece on its path:
+
+Kills it and stops there
+
+If the first piece is friendly → movement is illegal
+
+If distance moved ≥ 5 squares:
+
+Juggernaut performs a full long-charge:
+
+First enemy encountered → crushed, Juggernaut continues
+
+Second enemy (on landing square) → crushed
+
+Maximum two kills
+
+Juggernaut stops after second kill or empty landing
+
+Restrictions
+
+Cannot crush friendly pieces
+
+Cannot pass through the King (recommended, prevents dumb unavoidable checkmates)
+
+Must still obey check rules on its own king
