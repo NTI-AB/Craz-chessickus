@@ -179,16 +179,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function refreshGameState() {
     try {
-      const res = await fetch('/state');
+      // Add timestamp to prevent caching
+      const res = await fetch('/state?_=' + Date.now());
       if (!res.ok) return;
       const data = await res.json();
       const nextTurn = normalizeColor(data.turn);
+      console.log('Polling state - Current:', currentTurn, 'Fetched:', nextTurn);
       if (nextTurn && nextTurn !== currentTurn) {
-        currentTurn = nextTurn;
-        boardWrapper.setAttribute('data-turn', currentTurn);
-        console.log('Turn updated to:', currentTurn);
-        updateTurnUI();
-        updateSelectableSquares();
+        // Turn changed! Reload the page to show the new board state
+        console.log('Turn changed from', currentTurn, 'to', nextTurn, '- reloading page');
+        window.location.reload(true); // Force reload from server
       }
     } catch (error) {
       console.error('Error refreshing state:', error);
