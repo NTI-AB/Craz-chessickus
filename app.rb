@@ -28,9 +28,7 @@ DB.execute <<~SQL
   );
 SQL
 
-MOVES_DB = SQLite3::Database.new('moveset.db')
-MOVES_DB.results_as_hash = true
-MoveRulesStore.ensure_schema!(MOVES_DB)
+MoveRulesStore.ensure_schema!(DB)
 
 # Ensure defaults exist
 def ensure_meta_default(key, default)
@@ -41,7 +39,7 @@ end
 ensure_meta_default('turn', 'white')
 ensure_meta_default('board_size', '8')
 
-MoveRulesStore.ensure_seeded!(MOVES_DB)
+MoveRulesStore.ensure_seeded!(DB)
 
 # --- Helper methods ---
 PLAYER_COLORS = %w[white black].freeze
@@ -113,31 +111,23 @@ def valid_moves_for_piece(piece)
   y = piece['y'].to_i
   size = board_size
 
-  rules = MOVES_DB.execute('SELECT * FROM move_rules WHERE name = ? AND (color IS NULL OR color = ?)', [piece['name'], piece['color']])
+  patterns = MoveRulesStore.parsed_patterns_for(DB, name: piece['name'], color: piece['color'])
+  return [] if patterns.empty?
+
   moves = []
 
-  rules.each do |r|
-    dx = r['dx'].to_i
-    dy = r['dy'].to_i
-    steps = r['max_steps'].to_i
-    kind = r['kind']
+  patterns.each do |entry|
+    pattern = entry['definition'] || {}
+    ray_limit = pattern['ray_limit'] || pattern['max_steps'] || size
+    ray_limit = size if ray_limit.nil? || ray_limit.to_i <= 0 || ray_limit.to_s == 'infinite'
 
-    cx = x
-    cy = y
-    1.upto(steps) do
-      tx = cx + dx
-      ty = cy + dy
-      break if tx < 0 || ty < 0 || tx >= size || ty >= size
+    Array(pattern['rays']).each do |dx, dy|
+      1.upto(ray_limit) do |step|
+        tx = x + dx.to_i * step
+        ty = y + dy.to_i * step
+        break if tx < 0 || ty < 0 || tx >= size || ty >= size
 
-      occ = piece_at(tx, ty)
-      case kind
-      when 'move_only'
-        break if occ
-        moves << [tx, ty]
-      when 'capture_only'
-        moves << [tx, ty] if occ && occ['color'] != piece['color']
-        break
-      else
+        occ = piece_at(tx, ty)
         if occ
           moves << [tx, ty] if occ['color'] != piece['color']
           break
@@ -145,17 +135,41 @@ def valid_moves_for_piece(piece)
           moves << [tx, ty]
         end
       end
+    end
 
-      cx = tx
-      cy = ty
+    Array(pattern['leaps']).each do |dx, dy|
+      tx = x + dx.to_i
+      ty = y + dy.to_i
+      next if tx < 0 || ty < 0 || tx >= size || ty >= size
+
+      occ = piece_at(tx, ty)
+      moves << [tx, ty] if occ.nil? || occ['color'] != piece['color']
+    end
+
+    Array(pattern['move_only']).each do |dx, dy|
+      tx = x + dx.to_i
+      ty = y + dy.to_i
+      next if tx < 0 || ty < 0 || tx >= size || ty >= size
+
+      occ = piece_at(tx, ty)
+      moves << [tx, ty] unless occ
+    end
+
+    Array(pattern['capture_only']).each do |dx, dy|
+      tx = x + dx.to_i
+      ty = y + dy.to_i
+      next if tx < 0 || ty < 0 || tx >= size || ty >= size
+
+      occ = piece_at(tx, ty)
+      moves << [tx, ty] if occ && occ['color'] != piece['color']
     end
   end
 
-  moves
+  moves.uniq
 end
 
 before do
-  MoveRulesStore.ensure_seeded!(MOVES_DB)
+  MoveRulesStore.ensure_seeded!(DB)
 end
 
 # --- Routes ---
@@ -170,7 +184,7 @@ get '/play/:color' do
   @pieces = get_pieces
   @turn = get_turn
   @board_size = board_size
-  @rules_count = MOVES_DB.get_first_value('SELECT COUNT(*) FROM move_rules').to_i
+  @rules_count = MoveRulesStore.pattern_count(DB)
   @player_color = color
   @board_orientation = color == 'black' ? :black : :white
   slim :index
@@ -230,37 +244,64 @@ end
 # --- Move rules management ---
 get '/move_rules' do
   content_type :json
-  rules = MOVES_DB.execute('SELECT * FROM move_rules ORDER BY name, color, dx, dy')
+  rules = MoveRulesStore.pattern_rows(DB).map do |row|
+    row.merge('definition' => MoveRulesStore.parse_definition(row['definition']))
+  end
   { count: rules.size, rules: rules }.to_json
 end
 
 post '/move_rules' do
   content_type :json
-  name = params[:name]
-  color = params[:color]
-  color = nil if color == ''
-  dx = params[:dx].to_i
-  dy = params[:dy].to_i
-  max_steps = (params[:max_steps] || '1').to_i
-  kind = params[:kind] || 'normal'
+  name = params[:name].to_s.strip
+  color = params[:color].to_s.strip
+  color = nil if color.empty?
+  definition_raw = params[:definition].to_s.strip
 
-  halt 400, { error: 'name required' }.to_json if name.to_s.strip.empty?
-  halt 400, { error: 'kind required' }.to_json if kind.to_s.strip.empty?
+  halt 400, { error: 'name required' }.to_json if name.empty?
 
-  MOVES_DB.execute('INSERT OR IGNORE INTO move_rules (name, color, dx, dy, max_steps, kind) VALUES (?, ?, ?, ?, ?, ?)', [name, color, dx, dy, max_steps, kind])
-  rule = MOVES_DB.get_first_row('SELECT * FROM move_rules WHERE name=? AND IFNULL(color,"")=IFNULL(?,"") AND dx=? AND dy=? AND max_steps=? AND kind=?', [name, color, dx, dy, max_steps, kind])
+  definition =
+    if !definition_raw.empty?
+      begin
+        JSON.parse(definition_raw)
+      rescue JSON::ParserError => e
+        halt 400, { error: "invalid definition JSON: #{e.message}" }.to_json
+      end
+    elsif params[:dx] && params[:dy]
+      # Compatibility path: build a small pattern from vector inputs
+      dx = params[:dx].to_i
+      dy = params[:dy].to_i
+      case params[:kind]
+      when 'move_only'
+        { 'move_only' => [[dx, dy]] }
+      when 'capture_only'
+        { 'capture_only' => [[dx, dy]] }
+      else
+        # Treat as a leap if max_steps == 1, otherwise as a ray
+        steps = (params[:max_steps] || '1').to_i
+        if steps > 1
+          { 'rays' => [[dx, dy]], 'ray_limit' => steps }
+        else
+          { 'leaps' => [[dx, dy]] }
+        end
+      end
+    end
+
+  halt 400, { error: 'definition required (JSON)' }.to_json unless definition
+
+  MoveRulesStore.upsert_pattern(DB, name: name, color: color, definition: definition)
+  row = MoveRulesStore.pattern_rows(DB, name: name, color: color).first
   status 201
-  rule.to_json
+  row.merge('definition' => definition).to_json
 end
 
 post '/move_rules/seed_defaults' do
-  MoveRulesStore.ensure_seeded!(MOVES_DB)
+  MoveRulesStore.ensure_seeded!(DB)
   player = normalize_player_color(params[:player])
   redirect player_path(player)
 end
 
 post '/move_rules/reset_defaults' do
-  MoveRulesStore.reset!(MOVES_DB)
+  MoveRulesStore.reset!(DB)
   player = normalize_player_color(params[:player])
   redirect player_path(player)
 end

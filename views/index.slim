@@ -19,7 +19,7 @@ html
     p
       | Current turn:
       span.current-turn-value #{@turn.capitalize}
-    p Move rules: #{@rules_count}
+    p Move patterns: #{@rules_count}
     p.notice.waiting-notice class=('hidden' if @player_color == @turn)
       | Waiting for #{@turn.capitalize} to move.
 
@@ -54,7 +54,7 @@ html
       button type="submit" Move
 
     hr
-    h2 Add Move Rule
+    h2 Add Move Pattern
     form action="/move_rules" method="post" style="display:flex;gap:0.5em;align-items:end;flex-wrap:wrap"
       div
         label Name
@@ -62,20 +62,26 @@ html
       div
         label Color (optional)
         input type="text" name="color" placeholder="white/black"
-      div
-        label dx
-        input type="number" name="dx" value=1 style="width:80px"
-      div
-        label dy
-        input type="number" name="dy" value=2 style="width:80px"
-      div
-        label max_steps
-        input type="number" name="max_steps" value=1 min=1 style="width:100px"
-      div
-        label kind
-        select name="kind"
-          option value="normal" normal
-          option value="move_only" move_only
-          option value="capture_only" capture_only
-      button type="submit" Add Rule
+      div style="flex:1 1 320px"
+        label Definition (JSON: rays, ray_limit, leaps, move_only, capture_only)
+        textarea name="definition" rows="4" style="min-width:320px" placeholder='{"rays":[[1,0],[0,1],[-1,0],[0,-1]],"ray_limit":null}'
+      div style="display:flex;gap:0.5em;flex-wrap:wrap;align-items:end"
+        div
+          label dx (fallback)
+          input type="number" name="dx" value=1 style="width:80px"
+        div
+          label dy (fallback)
+          input type="number" name="dy" value=1 style="width:80px"
+        div
+          label max_steps (fallback)
+          input type="number" name="max_steps" value=1 min=1 style="width:100px"
+        div
+          label kind (fallback)
+          select name="kind"
+            option value="normal" normal
+            option value="move_only" move_only
+            option value="capture_only" capture_only
+      p style="margin:0;color:#555;font-size:0.9em"
+        | Leave JSON blank to quickly add a single vector via the fallback fields, or provide a full JSON pattern.
+      button type="submit" Add / Update Pattern
     
